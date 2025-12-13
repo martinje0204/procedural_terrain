@@ -5,7 +5,7 @@ TILE_SIZE = 32
 
 class TileSet:
     '''
-    Loads a horizontal tileset: snow, mouintain, tree, grass, sand, water.
+    Loads a horizontal tileset: snow, mountain, tree, grass, sand, water.
     '''
     def __init__(self, filename):
         image = pygame.image.load(filename).convert_alpha()
@@ -37,15 +37,13 @@ class ChunkGenerator:
         for row in chunk_data:
             new_row = []
             for v in row:
-                # map noise [-1, 1] into tile types
+                # map noise floats [-1, 1] into tile types
                 if v < -0.2:
                     new_row.append(5)  # water
                 elif v < -0.15:
                     new_row.append(4)  # sand
                 elif v < 0.2:
                     new_row.append(3)  # grass
-                #elif v < 0.25:
-                #    new_row.append(2)  # forest
                 elif v < 0.5:
                     new_row.append(1)  # mountain
                 else:
@@ -63,7 +61,7 @@ class ChunkRenderer:
     def __init__(self, tileset, chunk_size):
         self.tileset = tileset
         self.chunk_size = chunk_size
-        self.cache = {}  # (cx, cy) → surface
+        self.cache = {}  # (cx, cy) -> pygame.Surface
 
     def build_surface(self, tile_ids):
         '''

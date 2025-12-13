@@ -45,15 +45,9 @@ class Game:
         self.chunk_radius = 1
 
         # initialize camera
-        self.camera = Camera(1280, 640)
+        self.camera = Camera(self.screen_width, self.screen_height)
         self.camera.x = 0.0
         self.camera.y = 0.0
-
-    def __reset_chunks__(self):
-        # Clear cached chunks so they'll regenerate (used on 'r' key)
-        self.loaded_chunks.clear()
-        self.noise.new_seed()
-        self.chunk_renderer.clear() 
 
     # kept name to match your main loop
     def handle_events(self):
@@ -127,6 +121,7 @@ class Game:
         pygame.display.flip()
 
     def get_chunk(self, cx, cy):
+        # take chunk coordinates, return the chunk surface, either from cache or generate it if needed
         if (cx, cy) not in self.loaded_chunks:
             raw = self.noise.generate_chunk(cx, cy)
             tiles = self.classifier.classify(raw)
@@ -134,7 +129,8 @@ class Game:
             self.loaded_chunks[(cx, cy)] = surface
         return self.loaded_chunks[(cx, cy)]
     
-    def preload_chunks(self):
+    def preload_chunks(self):\
+
         chunk_tile_size = self.noise.chunk_size
         min_cx, max_cx, min_cy, max_cy = self.camera.get_visible_chunk_range(chunk_tile_size)
 
@@ -152,6 +148,13 @@ class Game:
                     surface = self.chunk_renderer.get_surface(cx, cy, tiles)
                     self.loaded_chunks[(cx, cy)] = surface
                     return  # stop after generating 1 per frame
+                
+    def __reset_chunks__(self):
+        # Clear cached chunks so they'll regenerate (used on 'r' key)
+        self.loaded_chunks.clear()
+        self.noise.new_seed()
+        self.chunk_renderer.clear() 
+
                 
             
 class NoiseMap:
@@ -189,43 +192,6 @@ class NoiseMap:
                 row.append(n)
             data.append(row)
         return data
-
-
-def draw_chunk(surface, chunk_data, chunk_x, chunk_y, camera_x, camera_y, zoom, base_tile_size=TILE_SIZE):
-    '''
-    Draw a chunk (2D list of floats in [-1,1]) to the surface using greyscale.
-    Coordinates:
-      chunk_x, chunk_y : chunk indices (in chunks)
-      camera_x, camera_y : camera position in world pixels
-      zoom : camera zoom factor
-    '''
-    tile_size = base_tile_size * zoom
-    chunk_size_tiles = len(chunk_data)
-    chunk_px_size = chunk_size_tiles * tile_size
-
-    # chunk origin in world pixels
-    chunk_origin_x = chunk_x * chunk_size_tiles * base_tile_size
-    chunk_origin_y = chunk_y * chunk_size_tiles * base_tile_size
-
-    # draw each tile in the chunk
-    for ty, row in enumerate(chunk_data):
-        for tx, value in enumerate(row):
-            # map value [-1,1] to 0..255
-            color_value = max(0, min(255, int((value + 1.0) * 127.5)))
-            world_px = chunk_origin_x + tx * base_tile_size
-            world_py = chunk_origin_y + ty * base_tile_size
-
-            # Convert to camera/screen coordinates and apply zoom
-            screen_x = (world_px - camera_x) * zoom
-            screen_y = (world_py - camera_y) * zoom
-
-            # optional simple culling: skip tiles outside the screen rectangle
-            # We'll compute a conservative cull: if tile rect is off-screen skip it.
-            tile_rect = pygame.Rect(screen_x, screen_y, tile_size, tile_size)
-            if not surface.get_rect().colliderect(tile_rect):
-                continue
-
-            pygame.draw.rect(surface, (color_value, color_value, color_value), tile_rect)
 
 
 class Camera:
