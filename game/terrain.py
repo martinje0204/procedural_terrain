@@ -1,5 +1,4 @@
 import pygame
-from perlin_noise import PerlinNoise
 
 TILE_SIZE = 32
 
@@ -44,7 +43,7 @@ class ChunkGenerator:
                     new_row.append(4)  # sand
                 elif v < 0.2:
                     new_row.append(3)  # grass
-                elif v < 0.5:
+                elif v < 0.4:
                     new_row.append(1)  # mountain
                 else:
                     new_row.append(0)  # snow

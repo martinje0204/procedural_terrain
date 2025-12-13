@@ -5,8 +5,6 @@ from perlin_noise import PerlinNoise
 from .terrain import ChunkRenderer, ChunkGenerator, TileSet
 from pathlib import Path
 
-display_resolution = (800, 600) 
-
 TILE_SIZE = 32  # base tile size in pixels
 tilesheet_path = Path(__file__).parent / 'assets' / 'tilesheet.png'
 logo_path = Path(__file__).parent / 'assets' / 'maryland_ball.png' 
@@ -32,7 +30,7 @@ class Game:
         pygame.display.set_icon(logo) # when I learned I could do this I had to put a custom icon
 
         # initialize terrain noise
-        self.seed = 6767  # initialize with any integer seed, can be changed during runtime
+        self.seed = 18257  # initialize with any integer seed, can be changed during runtime
         self.noise = NoiseMap(seed=self.seed, chunk_size=32, octaves=6)
 
         self.clock = pygame.time.Clock()
@@ -49,7 +47,6 @@ class Game:
         self.camera.x = 0.0
         self.camera.y = 0.0
 
-    # kept name to match your main loop
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -147,7 +144,7 @@ class Game:
                     tiles = self.classifier.classify(raw)
                     surface = self.chunk_renderer.get_surface(cx, cy, tiles)
                     self.loaded_chunks[(cx, cy)] = surface
-                    return  # stop after generating 1 per frame
+                    return 
                 
     def __reset_chunks__(self):
         # Clear cached chunks so they'll regenerate (used on 'r' key)
@@ -180,14 +177,14 @@ class NoiseMap:
         print(f"New seed:  {self.seed}")
         self._recreate_noise()
 
-    def generate_chunk(self, chunk_x, chunk_y, scale=100.0):
+    def generate_chunk(self, cx, cy, scale=200.0): # scale = changes resolution of terrain, higher = smoother terrain generation
         # Return chunk_size x chunk_size list of float noise values [-1,1]
         data = []
         for y in range(self.chunk_size):
             row = []
             for x in range(self.chunk_size):
-                world_x = chunk_x * self.chunk_size + x
-                world_y = chunk_y * self.chunk_size + y
+                world_x = cx * self.chunk_size + x
+                world_y = cy * self.chunk_size + y
                 n = self.noise([world_x / scale, world_y / scale])
                 row.append(n)
             data.append(row)
@@ -203,9 +200,9 @@ class Camera:
         self.y = 0.0
         self.width = width
         self.height = height
-        self.zoom = 1.0
+        self.zoom = 1
         self.min_zoom = 0.25
-        self.max_zoom = 15
+        self.max_zoom = 20
 
     def move(self, dx, dy):
         # dx, dy are in screen pixels; convert to world-space movement
