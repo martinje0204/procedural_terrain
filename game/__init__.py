@@ -5,6 +5,8 @@ from perlin_noise import PerlinNoise
 from .terrain import ChunkRenderer, ChunkGenerator, TileSet
 from pathlib import Path
 
+display_resolution = (800, 600) 
+
 TILE_SIZE = 32  # base tile size in pixels
 tilesheet_path = Path(__file__).parent / 'assets' / 'tilesheet.png'
 logo_path = Path(__file__).parent / 'assets' / 'maryland_ball.png' 
@@ -13,9 +15,18 @@ logo_path = Path(__file__).parent / 'assets' / 'maryland_ball.png'
 class Game:
     def __init__(self):
         pygame.init()
+        pygame.font.init()
+        self.font = pygame.font.SysFont(None, 24)
+
         # set up game display
-        self.screen = pygame.display.set_mode((1920, 1080))
+        self.info = pygame.display.Info()
+
+        # take user screen size and make window half that size
+        self.screen_width = self.info.current_w * 0.5
+        self.screen_height = self.info.current_h * 0.5
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
         self.bg_color = pygame.Color('black')
+    
         pygame.display.set_caption("Perlin Noise Terrain Demo")
         logo = pygame.image.load(logo_path) 
         pygame.display.set_icon(logo) # when I learned I could do this I had to put a custom icon
@@ -109,8 +120,11 @@ class Game:
 
                     self.screen.blit(scaled, (screen_x, screen_y))
     
-        pygame.display.flip()
         self.clock.tick(60)
+        text_surface = self.font.render('Press WASD to move. Press Q/E to zoom. Press R to load new seed.', True, (0, 0, 0)) # Black text
+        text_rect = text_surface.get_rect(center=(self.screen_width // 2, 12))
+        self.screen.blit(text_surface, text_rect)
+        pygame.display.flip()
 
     def get_chunk(self, cx, cy):
         if (cx, cy) not in self.loaded_chunks:
