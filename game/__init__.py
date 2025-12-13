@@ -1,45 +1,50 @@
 import pygame
 import sys
+import random
+from perlin_noise import PerlinNoise
+from .terrain import ChunkRenderer, ChunkGenerator, TileSet
+from pathlib import Path
 
-from .tilesheet import TileSheet
-from .noise_map import NoiseMap, draw_chunk
+TILE_SIZE = 32  # base tile size in pixels
+tilesheet_path = Path(__file__).parent / 'assets' / 'tilesheet.png'
+logo_path = Path(__file__).parent / 'assets' / 'maryland_ball.png' 
+
 
 class Game:
     def __init__(self):
         pygame.init()
-        
-        self.screen = pygame.display.set_mode((1280, 640))
+        # set up game display
+        self.screen = pygame.display.set_mode((1920, 1080))
+        self.bg_color = pygame.Color('black')
+        pygame.display.set_caption("Perlin Noise Terrain Demo")
+        logo = pygame.image.load(logo_path) 
+        pygame.display.set_icon(logo) # when I learned I could do this I had to put a custom icon
+
+        # initialize terrain noise
+        self.seed = 6767  # initialize with any integer seed, can be changed during runtime
+        self.noise = NoiseMap(seed=self.seed, chunk_size=32, octaves=6)
+
         self.clock = pygame.time.Clock()
 
-        self.bg_color = pygame.Color('black')
-
-        self.tiles = TileSheet('assets/tilesheet.png', 32, 32, 1, 3)
-
-        self.camera_x = 0
-        self.camera_y = 0
-
-        self.zoom = 1.0        # 1.0 = normal size
-        self.zoom_step = 0.01   # how much zoom changes per key press
-
-        self.speed = 5   
-
-
+        # initialize terrain components
+        self.tileset = TileSet(tilesheet_path)
+        self.classifier = ChunkGenerator() # makes matrix of integer tile IDs from perlin noise values
+        self.chunk_renderer = ChunkRenderer(self.tileset, self.noise.chunk_size)
         self.loaded_chunks = {}
-        self.chunk_radius = 2  # loads a 5×5 region around the player
+        self.chunk_radius = 1
 
-        # NEW: create noise system
-        self.noise = NoiseMap(seed=1337)
+        # initialize camera
+        self.camera = Camera(1280, 640)
+        self.camera.x = 0.0
+        self.camera.y = 0.0
 
-        # generate a test chunk
-        self.chunk00 = self.noise.generate_chunk(0, 0)
-        self.chunk10 = self.noise.generate_chunk(1, 0)
-        self.chunk01 = self.noise.generate_chunk(0, 1)
     def __reset_chunks__(self):
-        print("reset chunks")
-        
-        self.noise.new_seed() # get new seed
+        # Clear cached chunks so they'll regenerate (used on 'r' key)
+        self.loaded_chunks.clear()
+        self.noise.new_seed()
+        self.chunk_renderer.clear() 
 
-
+    # kept name to match your main loop
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -48,54 +53,212 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
                     self.__reset_chunks__()
+                if event.key == pygame.K_e:
+                    self.camera.zoom_in()
+                if event.key == pygame.K_q:
+                    self.camera.zoom_out()
+
     def update(self):
         pressed_keys = pygame.key.get_pressed()
+        move_speed = 10
         if pressed_keys[pygame.K_w]:
-            self.camera_y -= self.speed
+            self.camera.move(0, -move_speed)
         if pressed_keys[pygame.K_s]:
-            self.camera_y += self.speed
+            self.camera.move(0, move_speed)
         if pressed_keys[pygame.K_a]:
-            self.camera_x -= self.speed
+            self.camera.move(-move_speed, 0)
         if pressed_keys[pygame.K_d]:
-            self.camera_x += self.speed
-        if pressed_keys[pygame.K_e]:
-            self.zoom += self.zoom_step
-            if self.zoom > 3:
-                self.zoom = 3  
-        if pressed_keys[pygame.K_q]:
-            self.zoom -= self.zoom_step
-            if self.zoom < 0.3:
-                self.zoom = 0.3  
+            self.camera.move(move_speed, 0)
+
+        # preload chunks around current view
+        self.preload_chunks()
+
     def draw(self):
         self.screen.fill(self.bg_color)
 
-        tile_size = 32
-        chunk_size_px = self.noise.chunk_size * tile_size
+        chunk_tile_size = self.noise.chunk_size  # tiles per chunk (e.g. 32)
+        base_chunk_px = chunk_tile_size * TILE_SIZE  # px per chunk at zoom=1
 
-        # Determine current chunk the camera is over
-        current_chunk_x = self.camera_x // chunk_size_px
-        current_chunk_y = self.camera_y // chunk_size_px
+        # find visible chunk range from camera
+        min_cx, max_cx, min_cy, max_cy = self.camera.get_visible_chunk_range(chunk_tile_size)
 
-        # Load and draw all chunks in radius
-        for dy in range(-self.chunk_radius, self.chunk_radius + 1):
-            for dx in range(-self.chunk_radius, self.chunk_radius + 1):
+        # create a margin to draw extra chunks around the camera's view
+        min_cx -= self.chunk_radius
+        max_cx += self.chunk_radius
+        min_cy -= self.chunk_radius
+        max_cy += self.chunk_radius
+    
+        for cy in range(min_cy, max_cy + 1):
+            for cx in range(min_cx, max_cx + 1):
 
-                cx = current_chunk_x + dx
-                cy = current_chunk_y + dy
+                # Only draw if the chunk has already been loaded
+                if (cx, cy) in self.loaded_chunks:
+                    surface = self.loaded_chunks[(cx, cy)]
 
-                chunk = self.get_chunk(cx, cy)
+                    world_x = cx * base_chunk_px
+                    world_y = cy * base_chunk_px
 
-                draw_chunk(
-                    self.screen,
-                    chunk,
-                    cx, cy,
-                    self.camera_x, self.camera_y,
-                    self.zoom
-                )
+                    screen_x = (world_x - self.camera.x) * self.camera.zoom
+                    screen_y = (world_y - self.camera.y) * self.camera.zoom
 
+                    scaled = pygame.transform.scale(
+                        surface,
+                        (int(surface.get_width() * self.camera.zoom),
+                        int(surface.get_height() * self.camera.zoom))
+                    )
+
+                    self.screen.blit(scaled, (screen_x, screen_y))
+    
         pygame.display.flip()
+        self.clock.tick(60)
 
     def get_chunk(self, cx, cy):
         if (cx, cy) not in self.loaded_chunks:
-            self.loaded_chunks[(cx, cy)] = self.noise.generate_chunk(cx, cy)
+            raw = self.noise.generate_chunk(cx, cy)
+            tiles = self.classifier.classify(raw)
+            surface = self.chunk_renderer.get_surface(cx, cy, tiles)
+            self.loaded_chunks[(cx, cy)] = surface
         return self.loaded_chunks[(cx, cy)]
+    
+    def preload_chunks(self):
+        chunk_tile_size = self.noise.chunk_size
+        min_cx, max_cx, min_cy, max_cy = self.camera.get_visible_chunk_range(chunk_tile_size)
+
+        min_cx -= self.chunk_radius
+        max_cx += self.chunk_radius
+        min_cy -= self.chunk_radius
+        max_cy += self.chunk_radius
+
+        for cy in range(min_cy, max_cy + 1):
+            for cx in range(min_cx, max_cx + 1):
+                if (cx, cy) not in self.loaded_chunks:
+                    # generate one chunk per update to avoid stutter
+                    raw = self.noise.generate_chunk(cx, cy)
+                    tiles = self.classifier.classify(raw)
+                    surface = self.chunk_renderer.get_surface(cx, cy, tiles)
+                    self.loaded_chunks[(cx, cy)] = surface
+                    return  # stop after generating 1 per frame
+                
+            
+class NoiseMap:
+    '''
+    Perlin noise chunk generator. Returns a 2D array of floats in [-1,1].
+    '''
+    def __init__(self, seed=None, chunk_size=32, octaves=6):
+        self.seed = seed if seed is not None else self._random_seed()
+        self.chunk_size = chunk_size  # tiles per chunk
+        self.octaves = octaves
+        self._recreate_noise()
+
+    def _random_seed(self, seed_length=5):
+        lower_bound = 10 ** (seed_length - 1)
+        upper_bound = 10 ** seed_length - 1
+        return random.randint(lower_bound, upper_bound)
+
+    def _recreate_noise(self):
+        self.noise = PerlinNoise(octaves=self.octaves, seed=self.seed)
+
+    def new_seed(self):
+        self.seed = self._random_seed()
+        print(f"New seed:  {self.seed}")
+        self._recreate_noise()
+
+    def generate_chunk(self, chunk_x, chunk_y, scale=100.0):
+        # Return chunk_size x chunk_size list of float noise values [-1,1]
+        data = []
+        for y in range(self.chunk_size):
+            row = []
+            for x in range(self.chunk_size):
+                world_x = chunk_x * self.chunk_size + x
+                world_y = chunk_y * self.chunk_size + y
+                n = self.noise([world_x / scale, world_y / scale])
+                row.append(n)
+            data.append(row)
+        return data
+
+
+def draw_chunk(surface, chunk_data, chunk_x, chunk_y, camera_x, camera_y, zoom, base_tile_size=TILE_SIZE):
+    '''
+    Draw a chunk (2D list of floats in [-1,1]) to the surface using greyscale.
+    Coordinates:
+      chunk_x, chunk_y : chunk indices (in chunks)
+      camera_x, camera_y : camera position in world pixels
+      zoom : camera zoom factor
+    '''
+    tile_size = base_tile_size * zoom
+    chunk_size_tiles = len(chunk_data)
+    chunk_px_size = chunk_size_tiles * tile_size
+
+    # chunk origin in world pixels
+    chunk_origin_x = chunk_x * chunk_size_tiles * base_tile_size
+    chunk_origin_y = chunk_y * chunk_size_tiles * base_tile_size
+
+    # draw each tile in the chunk
+    for ty, row in enumerate(chunk_data):
+        for tx, value in enumerate(row):
+            # map value [-1,1] to 0..255
+            color_value = max(0, min(255, int((value + 1.0) * 127.5)))
+            world_px = chunk_origin_x + tx * base_tile_size
+            world_py = chunk_origin_y + ty * base_tile_size
+
+            # Convert to camera/screen coordinates and apply zoom
+            screen_x = (world_px - camera_x) * zoom
+            screen_y = (world_py - camera_y) * zoom
+
+            # optional simple culling: skip tiles outside the screen rectangle
+            # We'll compute a conservative cull: if tile rect is off-screen skip it.
+            tile_rect = pygame.Rect(screen_x, screen_y, tile_size, tile_size)
+            if not surface.get_rect().colliderect(tile_rect):
+                continue
+
+            pygame.draw.rect(surface, (color_value, color_value, color_value), tile_rect)
+
+
+class Camera:
+    '''
+    Camera holds a top-left world position in pixels and a zoom factor.
+    '''
+    def __init__(self, width, height):
+        self.x = 0.0  # world pixel coordinates (top-left of the view)
+        self.y = 0.0
+        self.width = width
+        self.height = height
+        self.zoom = 1.0
+        self.min_zoom = 0.25
+        self.max_zoom = 15
+
+    def move(self, dx, dy):
+        # dx, dy are in screen pixels; convert to world-space movement
+        self.x += dx * (1 / self.zoom)
+        self.y += dy * (1 / self.zoom)
+
+    def zoom_in(self, factor=1.1):
+        old = self.zoom
+        self.zoom = min(self.zoom * factor, self.max_zoom)
+        return old, self.zoom
+
+    def zoom_out(self, factor=1.1):
+        old = self.zoom
+        self.zoom = max(self.zoom / factor, self.min_zoom)
+        return old, self.zoom
+
+    def get_visible_chunk_range(self, chunk_tile_size):
+        '''
+        Return min_chunk_x, max_chunk_x, min_chunk_y, max_chunk_y
+        based on camera position and current zoom. chunk_tile_size is tiles per chunk.
+        '''
+        chunk_px_size = chunk_tile_size * TILE_SIZE  # pixels per chunk
+
+        # view rect in world pixels (top-left origin)
+        view_left = self.x
+        view_top = self.y
+        view_right = self.x + (self.width / self.zoom)
+        view_bottom = self.y + (self.height / self.zoom)
+
+        min_chunk_x = int(view_left // chunk_px_size) - 1
+        min_chunk_y = int(view_top // chunk_px_size) - 1
+        max_chunk_x = int(view_right // chunk_px_size) + 1
+        max_chunk_y = int(view_bottom // chunk_px_size) + 1
+
+        return min_chunk_x, max_chunk_x, min_chunk_y, max_chunk_y
+
