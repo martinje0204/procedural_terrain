@@ -164,23 +164,23 @@ class NoiseMap:
     Perlin noise chunk generator. Returns a 2D array of floats in [-1,1].
     '''
     def __init__(self, seed=None, chunk_size=32, octaves=6):
-        self.seed = seed if seed is not None else self._random_seed()
+        self.seed = seed if seed is not None else self.random_seed()
         self.chunk_size = chunk_size  # tiles per chunk
         self.octaves = octaves
-        self._recreate_noise()
+        self.recreate_noise()
 
-    def _random_seed(self, seed_length=5):
+    def random_seed(self, seed_length=5):
         lower_bound = 10 ** (seed_length - 1)
         upper_bound = 10 ** seed_length - 1
         return random.randint(lower_bound, upper_bound)
 
-    def _recreate_noise(self):
+    def recreate_noise(self):
         self.noise = PerlinNoise(octaves=self.octaves, seed=self.seed)
 
     def new_seed(self):
-        self.seed = self._random_seed()
+        self.seed = self.random_seed()
         print(f"New seed:  {self.seed}")
-        self._recreate_noise()
+        self.recreate_noise()
 
     def generate_chunk(self, cx, cy, scale=noisemap_scale): # scale = changes resolution of terrain, higher = smoother terrain generation
         # Return chunk_size x chunk_size list of float noise values [-1,1]
