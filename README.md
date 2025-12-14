@@ -11,14 +11,14 @@ Run the “main.py” file to start the program.
 ## Example Windows installation procedure (with Python 3.12.6 installed)
 1. in command prompt or other terminal, navigate to intended installation file directory
 2. enter the following commands: 
-    '''
+    ```
     git clone https://github.com/martinje0204/procedural_terrain.git
     cd .\procedural_terrain\
     python -m venv myenv
     myenv\Scripts\activate
     pip install -r requirements.txt
     python main.py
-    '''
+    ```
     
 ## Usage instructions
 Run the main.py file to start the program.
