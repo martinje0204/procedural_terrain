@@ -126,7 +126,7 @@ class Game:
             self.loaded_chunks[(cx, cy)] = surface
         return self.loaded_chunks[(cx, cy)]
     
-    def preload_chunks(self):\
+    def preload_chunks(self):
 
         chunk_tile_size = self.noise.chunk_size
         min_cx, max_cx, min_cy, max_cy = self.camera.get_visible_chunk_range(chunk_tile_size)
