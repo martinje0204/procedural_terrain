@@ -9,6 +9,11 @@ TILE_SIZE = 32  # base tile size in pixels
 tilesheet_path = Path(__file__).parent / 'assets' / 'tilesheet.png'
 logo_path = Path(__file__).parent / 'assets' / 'maryland_ball.png' 
 
+'''
+Change the value of noisemap_scale to adjust terrain smoothness.
+Higher values produce smoother, larger features; lower values yield smaller, more jagged terrain.
+'''
+noisemap_scale = 300.0 
 
 class Game:
     def __init__(self):
@@ -177,7 +182,7 @@ class NoiseMap:
         print(f"New seed:  {self.seed}")
         self._recreate_noise()
 
-    def generate_chunk(self, cx, cy, scale=200.0): # scale = changes resolution of terrain, higher = smoother terrain generation
+    def generate_chunk(self, cx, cy, scale=noisemap_scale): # scale = changes resolution of terrain, higher = smoother terrain generation
         # Return chunk_size x chunk_size list of float noise values [-1,1]
         data = []
         for y in range(self.chunk_size):
