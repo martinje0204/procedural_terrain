@@ -9,8 +9,8 @@ Install the necessary dependencies found in the “requirements.txt” file
 Run the “main.py” file to start the program.
 
 ## Example Windows installation procedure (with Python 3.12.6 installed)
-1. in command prompt or other terminal, navigate to intended installation file directory
-2. enter the following commands: 
+1. In command prompt or other terminal, navigate to intended installation file directory
+2. Enter the following commands: 
     ```
     git clone https://github.com/martinje0204/procedural_terrain.git
     cd .\procedural_terrain\
@@ -24,9 +24,9 @@ Run the “main.py” file to start the program.
 Run the main.py file to start the program.
 
 ## Controls
-W,A,S,D : navigate the world
-Q / E : zoom in / out
-R : resets loaded chunks and generates new world with random seed
+W,A,S,D : navigate the world  \
+Q / E : zoom in / out  \
+R : resets loaded chunks and generates new world with random seed  \
 
 ## Changing terrain generation paramters:
 edit the noisemap_scale value at the top of "__init__.py" to change the terrain scale. Higher values create larger, smoother terrain, while smaller values create smaller, more jagged terrain.
